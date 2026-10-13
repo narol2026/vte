@@ -729,6 +729,15 @@ pub trait Handler {
 
     // Set SCP control.
     fn set_scp(&mut self, _char_path: ScpCharPath, _update_mode: ScpUpdateMode) {}
+
+    /// Raw OSC command that was not handled by one of the built-in OSC codes.
+    ///
+    /// The `code` is the first semicolon-delimited OSC parameter and `params`
+    /// contains every parameter, including `code`. Implementors own the
+    /// protocol interpretation and return `true` when the sequence was handled.
+    fn osc(&mut self, _code: &[u8], _params: &[&[u8]], _bell_terminated: bool) -> bool {
+        false
+    }
 }
 
 bitflags! {
@@ -1520,7 +1529,12 @@ where
             // Reset text cursor color.
             b"112" => self.handler.reset_color(NamedColor::Cursor as usize),
 
-            _ => unhandled(params),
+            // Let the terminal handler interpret protocol-specific OSCs.
+            code => {
+                if !self.handler.osc(code, params, bell_terminated) {
+                    unhandled(params);
+                }
+            },
         }
     }
 
